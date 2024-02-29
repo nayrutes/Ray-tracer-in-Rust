@@ -1,21 +1,41 @@
 //https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
 mod vec3d;
+mod ray;
 
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use itertools::Itertools;
 use indicatif::ProgressIterator;
+use crate::ray::Ray;
+use crate::vec3d::Vec3d;
 
 fn main() -> std::io::Result<()> {
     println!("Hello, world!");
 
-    let image_width : usize = 256;
-    let image_height: usize = 256;
+    let image_width : usize = 1600;
+    let image_height: usize = 900;
 
-    let image : Image = Image::sample_image(image_height, image_width);
+    //let mut image : Image = Image::sample_image(image_height, image_width);
+    let mut image : Image = Image::new_with_color(image_height, image_width, Vec3d::new(0.,1.,0.));
 
     println!("Rendering image with width {} and height {} ...",image_width, image_height);
+
+    let camera_origin = Vec3d::zero();
+    let camera_direction = Vec3d::forward();
+    let viewport_distance = 1.;
+    let viewport_pos = camera_origin + camera_direction * viewport_distance;
+
+    let aspect_ratio = image_width as f64 / image_height as f64;
+    let viewport_height = 2f64;
+    let viewport_width = viewport_height * aspect_ratio;
+    let viewport_u = Vec3d::right() * viewport_width;
+    let viewport_v = Vec3d::down() * viewport_height;
+    let pixel_delta_u = viewport_u / image_width as f64;
+    let pixel_delta_v = viewport_v / image_height as f64;
+
+    let viewport_upper_left = viewport_pos - viewport_u/2. - viewport_v/2.;
+    let pixel00_pos = viewport_upper_left + (pixel_delta_u + pixel_delta_v) * 0.5;
 
     for it in (0..image.height)
         .cartesian_product(0..image.width)
@@ -23,7 +43,16 @@ fn main() -> std::io::Result<()> {
         let row = it.0;
         let col = it.1;
 
+        //off by one error?
+        let pixel_center = pixel00_pos + (col as f64 * pixel_delta_u) + (row as f64 * pixel_delta_v);
+        let ray_direction_no_unit = pixel_center - camera_origin;
+        let ray = Ray::new(camera_origin, ray_direction_no_unit);
 
+        //let pixel_color = Vec3d::new(1.,0.,0.);
+
+        //let pixel_color = Vec3d::new(1.,0.,0.);
+        let pixel_color= ray_color(ray);
+        image.set_pixel_color(row, col, pixel_color);
     }
 
 
@@ -32,6 +61,37 @@ fn main() -> std::io::Result<()> {
     //image.write_to_file_ppm("output/sample.ppm")?;
 
     Ok(())
+}
+
+fn lerp(v1: f64, v2:f64, t:f64) -> f64{
+    return (1. - t) * v1 + t * v2;
+}
+fn lerp_vec3d(v1: Vec3d, v2:Vec3d, t:f64) -> Vec3d{
+    return (1. - t) * v1 + t * v2;
+}
+
+fn ray_color(ray: Ray) -> Vec3d{
+    let t = hit_sphere(Vec3d::new(0., 0., -1.), 0.5, ray);
+    if(t > 0.){
+        let normal  = (ray.at(t) - Vec3d::forward()).unit();
+        return Vec3d::new(normal.x+1.,normal.y+1.,normal.z) * 0.5;
+    }
+    let t = 0.5*(ray.direction_unit().y + 1.0);
+    let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
+    return pixel_color;
+}
+
+fn hit_sphere(center: Vec3d, radius: f64, ray:Ray) -> f64{
+    let oc = ray.origin - center;
+    let a = ray.direction_no_unit.dot(ray.direction_no_unit);
+    let b = 2. * oc.dot(ray.direction_no_unit);
+    let c = oc.dot(oc) - radius * radius;
+    let discriminant = b*b - 4.*a*c;
+    return if (discriminant < 0.) {
+        -1.
+    } else {
+        (-b - f64::sqrt(discriminant)) / (2.0 * a)
+    }
 }
 
 struct Pixel {
@@ -75,6 +135,19 @@ impl Image {
         }
     }
 
+    pub fn new_with_color(height: usize, width: usize, color: Vec3d) -> Self{
+        let mut image = Image::new(height,width);
+        for it in (0..image.height)
+            .cartesian_product(0..image.width)
+            .progress_count(image.height as u64 * image.width as u64){
+            let row = it.0;
+            let col = it.1;
+
+            image.set_pixel_color(row, col, color);
+        }
+        return image;
+    }
+
     pub fn sample_image(height: usize, width: usize) -> Self{
         let mut image = Image::new(height,width);
         for row in 0..image.height{
@@ -82,18 +155,25 @@ impl Image {
                 let r:f64 = col as f64 / (image.width as f64 - 1.0);
                 let g:f64 = row as f64 / (image.height as f64 - 1.0);
                 let b:f64 = 0.;
+                let color = Vec3d::new(r,g,b);
 
-                let factor = 255.999;
-                let ir = (factor * r) as u8;
-                let ig = (factor * g) as u8;
-                let ib = (factor * b) as u8;
-
-                image.pixels[row][col].r = ir;
-                image.pixels[row][col].g = ig;
-                image.pixels[row][col].b = ib;
+                image.set_pixel_color(row,col,color);
             }
         }
         return image;
+    }
+
+    pub(crate) fn set_pixel_color(&mut self, row: usize, col: usize, color: Vec3d) {
+        assert!(row >= 0 && row < self.height);
+        assert!(col >= 0 && col < self.width);
+
+        let factor = 255.999;
+        let ir = (factor * color.x) as u8;
+        let ig = (factor * color.y) as u8;
+        let ib = (factor * color.z) as u8;
+        self.pixels[row][col].r = ir;
+        self.pixels[row][col].g = ig;
+        self.pixels[row][col].b = ib;
     }
 
     pub fn display(&self){

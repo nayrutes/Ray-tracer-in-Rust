@@ -1,19 +1,45 @@
 use std::ops::{Add,Sub, Mul, Div};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-struct Vec3d {
+pub(crate) struct Vec3d {
     pub x: f64,
     pub y: f64,
     pub z: f64,
 }
 
 impl Vec3d{
-    fn new(x:f64, y:f64, z:f64) -> Self{
+    pub(crate) fn new(x:f64, y:f64, z:f64) -> Self{
         Self{
             x,y,z
         }
     }
 
+    pub(crate) fn zero() -> Self {
+        return Self::new(0., 0., 0.);
+    }
+
+    pub(crate) fn up() -> Self {
+        return Self::new(0.,1.,0.);
+    }
+    pub(crate) fn down() -> Self {
+        return Self::new(0.,-1.,0.);
+    }
+
+    pub(crate) fn right() -> Self {
+        return Self::new(1.,0.,0.);
+    }
+
+    pub(crate) fn left() -> Self {
+        return Self::new(-1.,0.,0.);
+    }
+
+    pub(crate) fn forward() -> Self{
+        return Self::new(0.,0.,-1.);
+    }
+
+    pub(crate) fn backward() -> Self{
+        return Self::new(0.,0.,1.);
+    }
 
     fn length_squared(self) -> f64{
         //return self.dot(self);
@@ -24,7 +50,7 @@ impl Vec3d{
         return f64::sqrt(self.length_squared());
     }
 
-    fn dot(self, other: Vec3d) -> f64{
+    pub(crate) fn dot(self, other: Vec3d) -> f64{
         return self.x * other.x + self.y * other.y + self.z * other.z;
     }
 
@@ -36,7 +62,7 @@ impl Vec3d{
         }
     }
 
-    fn unit(self) -> Self{
+    pub(crate) fn unit(self) -> Self{
         return self / self.length();
     }
 
