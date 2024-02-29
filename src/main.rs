@@ -1,7 +1,11 @@
 //https://raytracing.github.io/books/RayTracingInOneWeekend.html
 
+mod vec3d;
+
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use itertools::Itertools;
+use indicatif::ProgressIterator;
 
 fn main() -> std::io::Result<()> {
     println!("Hello, world!");
@@ -9,9 +13,19 @@ fn main() -> std::io::Result<()> {
     let image_width : usize = 256;
     let image_height: usize = 256;
 
-    let mut image : Image = Image::sample_image(image_height, image_width);
+    let image : Image = Image::sample_image(image_height, image_width);
 
     println!("Rendering image with width {} and height {} ...",image_width, image_height);
+
+    for it in (0..image.height)
+        .cartesian_product(0..image.width)
+        .progress_count(image.height as u64 * image.width as u64){
+        let row = it.0;
+        let col = it.1;
+
+
+    }
+
 
     //image.display();
     image.write_to_file_bmp("output/sample.bmp")?;
