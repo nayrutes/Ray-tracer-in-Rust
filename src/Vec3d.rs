@@ -1,4 +1,5 @@
-use std::ops::{Add,Sub, Mul, Div};
+use std::iter::Sum;
+use std::ops::{Add, Sub, Mul, Div};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct Vec3d {
@@ -41,7 +42,7 @@ impl Vec3d{
         return Self::new(0.,0.,1.);
     }
 
-    fn length_squared(self) -> f64{
+    pub(crate) fn length_squared(self) -> f64{
         //return self.dot(self);
         return self.x * self.x + self.y * self.y + self.z * self.z
     }
@@ -135,6 +136,17 @@ impl Div<f64> for Vec3d{
     }
 }
 
+impl Sum for Vec3d {
+    fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+        iter.fold(Vec3d{x:0.,y:0.,z:0.}, Add::add)
+    }
+}
+
+impl<'a> Sum<&'a Vec3d> for Vec3d {
+    fn sum<I: Iterator<Item=&'a Vec3d>>(iter: I) -> Self {
+        iter.fold(Vec3d{x:0.,y:0.,z:0.}, |acc,&item| acc+item.clone())
+    }
+}
 
 #[cfg(test)]
 mod tests{
@@ -179,5 +191,17 @@ mod tests{
     #[test]
     fn test_unit(){
         assert_eq!(Vec3d {x:0., y:0., z:1.}, Vec3d::new(0.,0.,9.).unit())
+    }
+
+    #[test]
+    fn test_sum_value(){
+        let v = vec![Vec3d::new(1.,2.,3.), Vec3d::new(4.,5.,6.), Vec3d::new(7.,8.,9.)];
+        assert_eq!(Vec3d::new(12.,15.,18.), v.into_iter().sum());
+    }
+
+    #[test]
+    fn test_sum_ref(){
+        let v = vec![Vec3d::new(1.,2.,3.), Vec3d::new(4.,5.,6.), Vec3d::new(7.,8.,9.)];
+        assert_eq!(Vec3d::new(12.,15.,18.), v.iter().sum());
     }
 }

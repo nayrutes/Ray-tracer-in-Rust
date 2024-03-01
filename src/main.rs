@@ -2,61 +2,40 @@
 
 mod vec3d;
 mod ray;
+mod hit;
+mod sphere;
+mod camera;
 
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use itertools::Itertools;
 use indicatif::ProgressIterator;
+use crate::hit::Hittable;
 use crate::ray::Ray;
 use crate::vec3d::Vec3d;
+use crate::sphere::Sphere;
+use crate::camera::Camera;
 
 fn main() -> std::io::Result<()> {
     println!("Hello, world!");
 
-    let image_width : usize = 1600;
-    let image_height: usize = 900;
+    let image_width : usize = 400;
+    let image_height: usize = 225;
 
     //let mut image : Image = Image::sample_image(image_height, image_width);
-    let mut image : Image = Image::new_with_color(image_height, image_width, Vec3d::new(0.,1.,0.));
-
-    println!("Rendering image with width {} and height {} ...",image_width, image_height);
-
-    let camera_origin = Vec3d::zero();
-    let camera_direction = Vec3d::forward();
-    let viewport_distance = 1.;
-    let viewport_pos = camera_origin + camera_direction * viewport_distance;
-
-    let aspect_ratio = image_width as f64 / image_height as f64;
-    let viewport_height = 2f64;
-    let viewport_width = viewport_height * aspect_ratio;
-    let viewport_u = Vec3d::right() * viewport_width;
-    let viewport_v = Vec3d::down() * viewport_height;
-    let pixel_delta_u = viewport_u / image_width as f64;
-    let pixel_delta_v = viewport_v / image_height as f64;
-
-    let viewport_upper_left = viewport_pos - viewport_u/2. - viewport_v/2.;
-    let pixel00_pos = viewport_upper_left + (pixel_delta_u + pixel_delta_v) * 0.5;
-
-    for it in (0..image.height)
-        .cartesian_product(0..image.width)
-        .progress_count(image.height as u64 * image.width as u64){
-        let row = it.0;
-        let col = it.1;
-
-        //off by one error?
-        let pixel_center = pixel00_pos + (col as f64 * pixel_delta_u) + (row as f64 * pixel_delta_v);
-        let ray_direction_no_unit = pixel_center - camera_origin;
-        let ray = Ray::new(camera_origin, ray_direction_no_unit);
-
-        //let pixel_color = Vec3d::new(1.,0.,0.);
-
-        //let pixel_color = Vec3d::new(1.,0.,0.);
-        let pixel_color= ray_color(ray);
-        image.set_pixel_color(row, col, pixel_color);
-    }
+    let mut image : Image;// = Image::new_with_color(image_height, image_width, Vec3d::new(0.,1.,0.));
 
 
-    //image.display();
+
+    let sphere = Sphere::new(Vec3d::new(0.,0., -1.), 0.5);
+    let sphere2 = Sphere::new(Vec3d::new(6.,1.,-5.), 2.2);
+    let mut world_objects: Vec<Box<dyn Hittable>> = Vec::new();
+    world_objects.push(Box::new(sphere));
+    world_objects.push(Box::new(sphere2));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(0., -100.5, -1.), 100.)));
+
+    let camera = Camera::new(image_width, image_height, 1.);
+    image = camera.render(&world_objects);
     image.write_to_file_bmp("output/sample.bmp")?;
     //image.write_to_file_ppm("output/sample.ppm")?;
 
@@ -70,29 +49,7 @@ fn lerp_vec3d(v1: Vec3d, v2:Vec3d, t:f64) -> Vec3d{
     return (1. - t) * v1 + t * v2;
 }
 
-fn ray_color(ray: Ray) -> Vec3d{
-    let t = hit_sphere(Vec3d::new(0., 0., -1.), 0.5, ray);
-    if(t > 0.){
-        let normal  = (ray.at(t) - Vec3d::forward()).unit();
-        return Vec3d::new(normal.x+1.,normal.y+1.,normal.z) * 0.5;
-    }
-    let t = 0.5*(ray.direction_unit().y + 1.0);
-    let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
-    return pixel_color;
-}
 
-fn hit_sphere(center: Vec3d, radius: f64, ray:Ray) -> f64{
-    let oc = ray.origin - center;
-    let a = ray.direction_no_unit.dot(ray.direction_no_unit);
-    let b = 2. * oc.dot(ray.direction_no_unit);
-    let c = oc.dot(oc) - radius * radius;
-    let discriminant = b*b - 4.*a*c;
-    return if (discriminant < 0.) {
-        -1.
-    } else {
-        (-b - f64::sqrt(discriminant)) / (2.0 * a)
-    }
-}
 
 struct Pixel {
     r: u8,
