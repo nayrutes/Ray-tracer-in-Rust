@@ -124,13 +124,21 @@ impl Image {
         assert!(row >= 0 && row < self.height);
         assert!(col >= 0 && col < self.width);
 
+        let r = Self::linear_to_gamma(color.x);
+        let g = Self::linear_to_gamma(color.y);
+        let b = Self::linear_to_gamma(color.z);
+
         let factor = 255.999;
-        let ir = (factor * color.x) as u8;
-        let ig = (factor * color.y) as u8;
-        let ib = (factor * color.z) as u8;
+        let ir = (factor * r) as u8;
+        let ig = (factor * g) as u8;
+        let ib = (factor * b) as u8;
         self.pixels[row][col].r = ir;
         self.pixels[row][col].g = ig;
         self.pixels[row][col].b = ib;
+    }
+
+    fn linear_to_gamma(linear: f64) -> f64{
+        return f64::sqrt(linear);
     }
 
     pub fn display(&self){

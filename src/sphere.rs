@@ -24,7 +24,7 @@ impl Hittable for Sphere{
         //let a = ray.direction_no_unit.dot(ray.direction_no_unit);
         let a = ray.direction_no_unit.length_squared();
         //let b = 2. * oc.dot(ray.direction_no_unit);
-        let half_b = oc.dot(ray.direction_no_unit);
+        let half_b = oc.dot(&ray.direction_no_unit);
         //let c = oc.dot(oc) - radius * radius;
         let c = oc.length_squared() - self.radius * self.radius;
         //let discriminant = b*b - 4.*a*c;

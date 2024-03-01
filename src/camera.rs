@@ -2,7 +2,7 @@ use indicatif::ProgressIterator;
 use itertools::Itertools;
 use rand::{Rng, thread_rng};
 use crate::hit::Hittable;
-use crate::Image;
+use crate::{Image, lerp_vec3d};
 use crate::ray::Ray;
 use crate::vec3d::Vec3d;
 
@@ -22,7 +22,9 @@ pub(crate) struct Camera {
     pixel_delta_u: Vec3d,
     pixel_delta_v: Vec3d,
     pixel00_pos: Vec3d,
+
     samples_per_pixel: usize,
+    max_bounces: usize,
 }
 
 impl Camera {
@@ -59,6 +61,7 @@ impl Camera {
             viewport_pos,
             pixel00_pos,
             samples_per_pixel : 100,
+            max_bounces: 10,
         }
     }
 
@@ -75,13 +78,31 @@ impl Camera {
             let scale = (self.samples_per_pixel as f64).recip();
             let multisample_color = (0..self.samples_per_pixel)
                 .into_iter().map(|_|{
-                return self.generate_rng_offset_ray(row, col).ray_color(&world) * scale;
+                let ray = &self.generate_rng_offset_ray(row, col);
+                return Self::ray_color(ray, self.max_bounces+1, &world) * scale;
             }).sum::<Vec3d>();
 
             image.set_pixel_color(row, col, multisample_color);
         }
 
         return image;
+    }
+
+    pub(crate) fn ray_color<T>(ray: &Ray, bounces_left: usize, hittable: &T) -> Vec3d where T:Hittable {
+        if bounces_left == 0{
+            return Vec3d::zero();
+        }
+        if let Some(hit_record) = hittable.hit(ray, (0.001)..f64::INFINITY){
+            //let diffuse_direction_random = Vec3d::random_on_hemisphere(&hit_record.normal);
+            let diffuse_direction_lambertian= hit_record.normal + Vec3d::random_unit_vector();
+            let ray_bounced = &Ray::new(hit_record.pos, diffuse_direction_lambertian);
+            return 0.7 * (Self::ray_color(ray_bounced, bounces_left -1, hittable));
+        }
+
+        //Background color lerp
+        let t = 0.5*(ray.direction_unit().y + 1.0);
+        let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
+        return pixel_color;
     }
 
     fn generate_rng_offset_ray(&self, row: usize, col: usize) -> Ray {

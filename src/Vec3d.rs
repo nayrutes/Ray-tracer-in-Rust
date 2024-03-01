@@ -1,5 +1,6 @@
 use std::iter::Sum;
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Sub, Mul, Div, Range, Neg};
+use rand::Rng;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct Vec3d {
@@ -51,7 +52,7 @@ impl Vec3d{
         return f64::sqrt(self.length_squared());
     }
 
-    pub(crate) fn dot(self, other: Vec3d) -> f64{
+    pub(crate) fn dot(self, other: &Vec3d) -> f64{
         return self.x * other.x + self.y * other.y + self.z * other.z;
     }
 
@@ -65,6 +66,63 @@ impl Vec3d{
 
     pub(crate) fn unit(self) -> Self{
         return self / self.length();
+    }
+
+    // pub(crate) fn lerp(self, other: Vec3d, t: f64) -> Vec3d{
+    //     return self * (1. - t) + other * t;
+    // }
+    //
+    // pub(crate) fn lerp_clamped(self, other: Vec3d, t: f64) -> Vec3d{
+    //     let t = t.max(0.).min(1.);
+    //     return self.lerp(other, t);
+    // }
+    //
+    // pub(crate) fn reflect(self, normal: Vec3d) -> Vec3d{
+    //     return self - normal * 2. * self.dot(normal);
+    // }
+    //
+    // pub(crate) fn refract(self, normal: Vec3d, etai_over_etat: f64) -> Vec3d{
+    //     let cos_theta = (-self).dot(normal).min(1.);
+    //     let r_out_perp = (self + normal * cos_theta) * etai_over_etat;
+    //     let r_out_parallel = normal * -f64::sqrt(f64::abs(1. - r_out_perp.length_squared()));
+    //     return r_out_perp + r_out_parallel;
+    // }
+    //
+    // pub(crate) fn near_zero(self) -> bool{
+    //     let s = 1e-8;
+    //     return f64::abs(self.x) < s && f64::abs(self.y) < s && f64::abs(self.z) < s;
+    // }
+
+    pub(crate) fn random_01() -> Vec3d{
+        let mut rng = rand::thread_rng();
+        return Vec3d::new(rng.gen(), rng.gen(), rng.gen());
+    }
+
+    pub(crate) fn random_from_range(range: Range<f64>) -> Vec3d{
+        let mut rng = rand::thread_rng();
+        return Vec3d::new(rng.gen_range(range.clone()), rng.gen_range(range.clone()), rng.gen_range(range));
+    }
+
+    fn random_in_unit_sphere() -> Vec3d{
+        loop{
+            let p = Vec3d::random_from_range(-1.0..1.0);
+            if p.length_squared() < 1.0{
+                return p;
+            }
+        }
+    }
+
+    pub(crate) fn random_unit_vector() -> Vec3d{
+        return Self::random_in_unit_sphere().unit();
+    }
+
+    pub(crate) fn random_on_hemisphere(normal: &Vec3d) -> Vec3d{
+        let on_unit_sphere = Self::random_in_unit_sphere();
+        return if(on_unit_sphere.dot(normal)>0.){
+            on_unit_sphere
+        }else{
+            -on_unit_sphere
+        }
     }
 
 }
@@ -136,6 +194,31 @@ impl Div<f64> for Vec3d{
     }
 }
 
+//implement negation
+impl Neg for Vec3d{
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        return Vec3d{
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
+impl<'a> Neg for &'a Vec3d{
+    type Output = Vec3d;
+
+    fn neg(self) -> Self::Output {
+        return Vec3d{
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
 impl Sum for Vec3d {
     fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
         iter.fold(Vec3d{x:0.,y:0.,z:0.}, Add::add)
@@ -182,6 +265,9 @@ mod tests{
     fn test_div(){
         assert_eq!(Vec3d {x:1., y:2., z:3.}, Vec3d{x:2., y:4., z:6.} / 2.);
     }
+
+    #[test]
+    fn test_neg() { assert_eq!(Vec3d {x:-1., y:0., z:1.}, -Vec3d{x:1., y:0., z:-1.})}
 
     #[test]
     fn test_cross(){

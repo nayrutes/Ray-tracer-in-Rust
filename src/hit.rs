@@ -11,7 +11,7 @@ pub(crate) trait Hittable {
 }
 
 pub(crate) struct HitRecord {
-    pos: Vec3d,
+    pub(crate) pos: Vec3d,
     pub(crate) normal: Vec3d,
     t: f64,
     //front_face: bool,

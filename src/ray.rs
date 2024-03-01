@@ -32,14 +32,5 @@ impl Ray{
         return self.direction_no_unit.unit();
     }
 
-    pub(crate) fn ray_color<T>(&self, hittable: &T) -> Vec3d where T:Hittable {
-        if let Some(rec) = hittable.hit(&self, (0.)..f64::INFINITY){
-            return 0.5 * (rec.normal + Vec3d::new(1.,1.,1.))
-        }
 
-        //Background color lerp
-        let t = 0.5*(self.direction_unit().y + 1.0);
-        let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
-        return pixel_color;
-    }
 }
