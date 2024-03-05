@@ -1,6 +1,7 @@
+use std::ops::Mul;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
-use rand::{Rng, thread_rng};
+use rand::{random, Rng, thread_rng};
 use crate::hit::Hittable;
 use crate::{Image, lerp_vec3d};
 use crate::ray::Ray;
@@ -60,8 +61,8 @@ impl Camera {
             pixel_delta_v,
             viewport_pos,
             pixel00_pos,
-            samples_per_pixel : 100,
-            max_bounces: 10,
+            samples_per_pixel : 1000,
+            max_bounces: 7,
         }
     }
 
@@ -94,15 +95,85 @@ impl Camera {
         }
         if let Some(hit_record) = hittable.hit(ray, (0.001)..f64::INFINITY){
             //let diffuse_direction_random = Vec3d::random_on_hemisphere(&hit_record.normal);
-            let diffuse_direction_lambertian= hit_record.normal + Vec3d::random_unit_vector();
-            let ray_bounced = &Ray::new(hit_record.pos, diffuse_direction_lambertian);
-            return 0.7 * (Self::ray_color(ray_bounced, bounces_left -1, hittable));
+            let mut color: Vec3d = Vec3d::zero();
+
+            //trace diffuse and reflective rays
+            let attenuation = hit_record.material.albedo_color;
+
+            // if(hit_record.material.reflectivity > 0.){
+            //     let reflect_direction = ray.direction_no_unit.unit().reflect(hit_record.normal);
+            //     let ray_bounced = Ray::new(hit_record.pos, reflect_direction);
+            //     let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+            //     color = color + hit_record.material.reflectivity * bounced_color;
+            // }
+            //
+            // if(hit_record.material.reflectivity < 1.){
+            //     let diffuse_direction_lambertian= hit_record.normal + Vec3d::random_unit_vector().near_zero_alt(hit_record.normal);
+            //     let ray_bounced = Ray::new(hit_record.pos, diffuse_direction_lambertian);
+            //     let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+            //     color = color + (1. - hit_record.material.reflectivity) * 0.7 * attenuation.comp_vise(bounced_color);
+            // }
+
+            //decision witch ray to trace
+            let sum = ((hit_record.material.absorption) + hit_record.material.reflectivity + hit_record.material.refractioness);
+            let chance = random::<f64>() * sum;
+            //reflective
+            if chance < hit_record.material.reflectivity{
+                let reflect_direction = ray.direction_no_unit.unit().reflect(&hit_record.normal);
+                let mut fuzz_vector = Vec3d::zero();
+                if(hit_record.material.reflection_fuzz > 0.) {
+                    fuzz_vector = hit_record.material.reflection_fuzz * Vec3d::random_in_unit_sphere();
+                }
+                let ray_bounced = Ray::new(hit_record.pos, reflect_direction + fuzz_vector);
+                let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+                if(ray_bounced.direction_no_unit.dot(&hit_record.normal) > 0.){
+                    color = color + hit_record.material.reflectivity * bounced_color;
+                }
+                //color = color + hit_record.material.reflectivity * bounced_color;
+            }
+            //refractive
+            else if (chance < hit_record.material.reflectivity + hit_record.material.refractioness){
+                let refraction_ratio = if hit_record.front_face {1. / hit_record.material.refraction_index} else {hit_record.material.refraction_index};
+                let unit_direction = ray.direction_no_unit.unit();
+                let cos_theta = (-unit_direction).dot(&hit_record.normal).min(1.);
+                let sin_theta = f64::sqrt(1. - cos_theta * cos_theta);
+                let cannot_refract = refraction_ratio * sin_theta > 1.;
+                let mut direction = Vec3d::zero();
+                if cannot_refract || Self::reflectance(cos_theta, refraction_ratio) > random::<f64>(){
+                    direction = unit_direction.reflect(&hit_record.normal);
+                }
+                else{
+                    direction = unit_direction.refract(&hit_record.normal, refraction_ratio);
+                }
+                let ray_bounced = Ray::new(hit_record.pos, direction);
+                let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+                color = color + (1. -hit_record.material.absorption) * bounced_color;
+            }
+            //diffuse
+            else if(chance < hit_record.material.reflectivity + hit_record.material.refractioness + (hit_record.material.absorption)){
+                let diffuse_direction_lambertian= hit_record.normal + Vec3d::random_unit_vector().near_zero_alt(hit_record.normal);
+                let ray_bounced = Ray::new(hit_record.pos, diffuse_direction_lambertian);
+                let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+                color = color + (1.-hit_record.material.absorption) * attenuation.comp_vise(bounced_color);
+            }
+            else {
+                println!("Error: no ray was traced");
+            }
+
+
+            return color;
         }
 
         //Background color lerp
         let t = 0.5*(ray.direction_unit().y + 1.0);
         let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
         return pixel_color;
+    }
+
+    pub(crate) fn reflectance(cosine: f64, refraction_index: f64) -> f64 {
+        let r0 = ((1. - refraction_index) / (1. + refraction_index));
+        let r0_squared = r0 * r0;
+        return r0_squared + (1. - r0_squared) * (1. - cosine).powi(5);
     }
 
     fn generate_rng_offset_ray(&self, row: usize, col: usize) -> Ray {

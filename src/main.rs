@@ -5,9 +5,11 @@ mod ray;
 mod hit;
 mod sphere;
 mod camera;
+mod material;
 
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::sync::Arc;
 use itertools::Itertools;
 use indicatif::ProgressIterator;
 use crate::hit::Hittable;
@@ -15,6 +17,7 @@ use crate::ray::Ray;
 use crate::vec3d::Vec3d;
 use crate::sphere::Sphere;
 use crate::camera::Camera;
+use crate::material::Material;
 
 fn main() -> std::io::Result<()> {
     println!("Hello, world!");
@@ -22,17 +25,29 @@ fn main() -> std::io::Result<()> {
     let image_width : usize = 400;
     let image_height: usize = 225;
 
+    let image_width : usize = 1600;
+    let image_height: usize = 900;
+
     //let mut image : Image = Image::sample_image(image_height, image_width);
     let mut image : Image;// = Image::new_with_color(image_height, image_width, Vec3d::new(0.,1.,0.));
 
+    let material1 = Arc::new(Material::builder().albedo(Vec3d::new(1.,1.,1.)).absorption(0.3).build());
+    let material2  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.4,0.9)).absorption(0.3).build());
+    let material3  = Arc::new(Material::builder().reflectivity(1.).reflection_fuzz(0.01).build());
+    let material4  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.9,0.3)).absorption(0.3).reflectivity(0.5).build());
+    let material5  = Arc::new(Material::builder().refractioness(1.).refraction_index(1.5).absorption(0.).build());
 
-
-    let sphere = Sphere::new(Vec3d::new(0.,0., -1.), 0.5);
-    let sphere2 = Sphere::new(Vec3d::new(6.,1.,-5.), 2.2);
+    let sphere = Sphere::new(Vec3d::new(0.,0., -1.), 0.5, material1.clone());
+    let sphere2 = Sphere::new(Vec3d::new(6.,1.,-5.), 2.2, material3.clone());
+    let sphere3 = Sphere::new(Vec3d::new(0., -100.5, -1.), 100., material2.clone());
+    let sphere4 = Sphere::new(Vec3d::new(1.,-0.5, -1.), 0.25, material4.clone());
+    let sphere5 = Sphere::new(Vec3d::new(1.,0.5, -1.), 0.25, material5.clone());
     let mut world_objects: Vec<Box<dyn Hittable>> = Vec::new();
     world_objects.push(Box::new(sphere));
     world_objects.push(Box::new(sphere2));
-    world_objects.push(Box::new(Sphere::new(Vec3d::new(0., -100.5, -1.), 100.)));
+    world_objects.push(Box::new(sphere3));
+    world_objects.push(Box::new(sphere4));
+    world_objects.push(Box::new(sphere5));
 
     let camera = Camera::new(image_width, image_height, 1.);
     image = camera.render(&world_objects);

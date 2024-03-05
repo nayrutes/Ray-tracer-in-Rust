@@ -1,19 +1,23 @@
 use std::ops::{Range, RangeInclusive};
+use std::sync::Arc;
 use crate::vec3d::Vec3d;
 use crate::hit::Hittable;
 use crate::hit::HitRecord;
+use crate::material::Material;
 use crate::ray::Ray;
 
 pub(crate) struct Sphere{
     center: Vec3d,
     radius: f64,
+    material: Arc<Material>,
 }
 
 impl Sphere{
-    pub(crate) fn new(center: Vec3d, radius: f64) -> Self{
+    pub(crate) fn new(center: Vec3d, radius: f64, material: Arc<Material>) -> Self{
         Self{
             center,
-            radius
+            radius,
+            material
         }
     }
 }
@@ -42,7 +46,8 @@ impl Hittable for Sphere{
             }
         }
         let pos = ray.at(root);
-        let hit_record = HitRecord::with_unit_normal(pos, (pos - self.center)/ self.radius, root);
+        let out_dir = (pos - self.center) / self.radius;
+        let hit_record = HitRecord::with_unit_normal(pos, out_dir, root, ray.direction_no_unit, self.material.clone());
         return Some(hit_record);
     }
 }

@@ -9,6 +9,40 @@ pub(crate) struct Vec3d {
     pub z: f64,
 }
 
+impl Vec3d {
+    pub(crate) fn reflect(&self, normal: &Vec3d) -> Self {
+        return *self - 2. * self.dot(normal) * normal;
+    }
+
+    pub(crate) fn refract(&self, normal: &Vec3d, etai_over_etat: f64) -> Self {
+        let cos_theta = (-*self).dot(normal).min(1.);
+        let r_out_perp = etai_over_etat * (*self + cos_theta * normal);
+        let r_out_parallel = -f64::sqrt(f64::abs(1. - r_out_perp.length_squared())) * normal;
+        return r_out_perp + r_out_parallel;
+    }
+}
+
+impl Vec3d {
+    pub(crate) fn near_zero_alt(&self, alternative: Vec3d) -> Vec3d {
+        let s = 1e-8;
+        return if f64::abs(self.x) < s && f64::abs(self.y) < s && f64::abs(self.z) < s {
+            alternative
+        } else {
+            *self
+        }
+    }
+}
+
+impl Vec3d {
+    pub(crate) fn comp_vise(&self, other: Vec3d) -> Vec3d {
+        Self{
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
+    }
+}
+
 impl Vec3d{
     pub(crate) fn new(x:f64, y:f64, z:f64) -> Self{
         Self{
@@ -103,7 +137,7 @@ impl Vec3d{
         return Vec3d::new(rng.gen_range(range.clone()), rng.gen_range(range.clone()), rng.gen_range(range));
     }
 
-    fn random_in_unit_sphere() -> Vec3d{
+    pub(crate) fn random_in_unit_sphere() -> Vec3d{
         loop{
             let p = Vec3d::random_from_range(-1.0..1.0);
             if p.length_squared() < 1.0{
@@ -118,6 +152,8 @@ impl Vec3d{
 
     pub(crate) fn random_on_hemisphere(normal: &Vec3d) -> Vec3d{
         let on_unit_sphere = Self::random_in_unit_sphere();
+        //Todo replace with vvvv ?
+        //return on_unit_sphere * f64::signum(on_unit_sphere.dot(normal));
         return if(on_unit_sphere.dot(normal)>0.){
             on_unit_sphere
         }else{
@@ -163,6 +199,18 @@ impl Mul<f64> for Vec3d{
     }
 }
 
+impl<'a> Mul<&'a f64> for Vec3d {
+    type Output = Self;
+
+    fn mul(self, rhs: &'a f64) -> Vec3d {
+        return Vec3d {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
 impl Mul<Vec3d> for f64{
     type Output = Vec3d;
 
@@ -173,6 +221,19 @@ impl Mul<Vec3d> for f64{
             z: self * rhs.z,
         }
     }
+}
+
+impl<'a> Mul<&'a Vec3d> for f64{
+    type Output = Vec3d;
+
+    fn mul(self, rhs: &Vec3d) -> Vec3d {
+        Vec3d{
+            x: self * rhs.x,
+            y: self * rhs.y,
+            z: self * rhs.z,
+        }
+    }
+
 }
 
 impl Div<f64> for Vec3d{
@@ -259,6 +320,12 @@ mod tests{
     fn test_mul() {
         assert_eq!(Vec3d {x:2., y:4., z:6.}, Vec3d {x:1., y:2., z:3.} * 2.);
         assert_eq!(Vec3d {x:2., y:4., z:6.}, 2. * Vec3d {x:1., y:2., z:3.});
+    }
+
+    #[test]
+    fn test_mul_ref() {
+        assert_eq!(Vec3d {x:2., y:4., z:6.}, &Vec3d {x:1., y:2., z:3.} * 2.);
+        assert_eq!(Vec3d {x:2., y:4., z:6.}, 2. * &Vec3d {x:1., y:2., z:3.});
     }
 
     #[test]
