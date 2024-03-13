@@ -35,7 +35,7 @@ impl HitRecord {
     }
 }
 
-impl Hittable for &Vec<Box<dyn Hittable>> {
+impl Hittable for &Vec<Box<dyn Hittable + Sync>> {
     fn hit(&self, ray: &Ray, interval: Range<f64>) -> Option<HitRecord> {
         let mut closest_so_far = interval.end;
         let mut temp_rec = None;

@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 itertools = "0.12.1"
-indicatif = "0.17.8"
+indicatif = {version = "*", features = ["rayon"]}
 rand = "0.9.0-alpha.0"
+rayon = "1.9.0"

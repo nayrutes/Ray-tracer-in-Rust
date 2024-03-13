@@ -1,11 +1,11 @@
-use std::ops::Mul;
-use indicatif::ProgressIterator;
+use indicatif::ParallelProgressIterator;
 use itertools::Itertools;
 use rand::{random, Rng, thread_rng};
 use crate::hit::Hittable;
 use crate::{Image, lerp_vec3d};
 use crate::ray::Ray;
 use crate::vec3d::Vec3d;
+use rayon::prelude::*;
 
 pub(crate) struct Camera {
     image_width: usize,
@@ -66,14 +66,16 @@ impl Camera {
         }
     }
 
-    pub(crate) fn render(&self, world: &Vec<Box<dyn Hittable>>) -> Image{
+    pub(crate) fn render<T>(&self, world: T) -> Image where T: Hittable +Sync{
         let mut image: Image = Image::new_with_color(self.image_height, self.image_width, Vec3d::new(0.,1.,0.));
         println!("Rendering image with width {} and height {} ...",self.image_width, self.image_height);
-        for it in (0..image.height)
+        let pixels: Vec<Vec3d> = (0..image.height)
+            //.flat_map(|row| (0..image.width).map(move |col| (row, col)))
             .cartesian_product(0..image.width)
-            .progress_count(image.height as u64 * image.width as u64){
-            let row = it.0;
-            let col = it.1;
+            .collect::<Vec<(usize, usize)>>()
+            .into_par_iter()
+            .progress_count(image.height as u64 * image.width as u64)
+            .map(|(row, col)|{
 
             //sampling inside a pixel
             let scale = (self.samples_per_pixel as f64).recip();
@@ -82,9 +84,11 @@ impl Camera {
                 let ray = &self.generate_rng_offset_ray(row, col);
                 return Self::ray_color(ray, self.max_bounces+1, &world) * scale;
             }).sum::<Vec3d>();
+                return multisample_color;
 
-            image.set_pixel_color(row, col, multisample_color);
-        }
+        }).collect::<Vec<Vec3d>>();
+
+        image.set_pixels(pixels);
 
         return image;
     }

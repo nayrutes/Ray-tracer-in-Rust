@@ -42,7 +42,7 @@ fn main() -> std::io::Result<()> {
     let sphere3 = Sphere::new(Vec3d::new(0., -100.5, -1.), 100., material2.clone());
     let sphere4 = Sphere::new(Vec3d::new(1.,-0.5, -1.), 0.25, material4.clone());
     let sphere5 = Sphere::new(Vec3d::new(1.,0.5, -1.), 0.25, material5.clone());
-    let mut world_objects: Vec<Box<dyn Hittable>> = Vec::new();
+    let mut world_objects: Vec<Box<dyn Hittable + Sync>> = Vec::new();
     world_objects.push(Box::new(sphere));
     world_objects.push(Box::new(sphere2));
     world_objects.push(Box::new(sphere3));
@@ -150,6 +150,14 @@ impl Image {
         self.pixels[row][col].r = ir;
         self.pixels[row][col].g = ig;
         self.pixels[row][col].b = ib;
+    }
+    pub(crate) fn set_pixels(&mut self, pixel_vector: Vec<Vec3d>) {
+        assert_eq!(pixel_vector.len(), self.height * self.width);
+        for row in 0..self.height{
+            for col in 0..self.width {
+                self.set_pixel_color(row, col, pixel_vector[row * self.width + col]);
+            }
+        }
     }
 
     fn linear_to_gamma(linear: f64) -> f64{
