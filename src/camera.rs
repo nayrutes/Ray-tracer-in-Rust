@@ -61,7 +61,7 @@ impl Camera {
             pixel_delta_v,
             viewport_pos,
             pixel00_pos,
-            samples_per_pixel : 1000,
+            samples_per_pixel : 10000,
             max_bounces: 7,
         }
     }
@@ -118,8 +118,8 @@ impl Camera {
             //     color = color + (1. - hit_record.material.reflectivity) * 0.7 * attenuation.comp_vise(bounced_color);
             // }
 
-            //decision witch ray to trace
-            let sum = ((hit_record.material.absorption) + hit_record.material.reflectivity + hit_record.material.refractioness);
+            //decision which ray to trace
+            let sum = (hit_record.material.absorption + hit_record.material.reflectivity + hit_record.material.refractioness + hit_record.material.emission_intensity);
             let chance = random::<f64>() * sum;
             //reflective
             if chance < hit_record.material.reflectivity{
@@ -154,11 +154,14 @@ impl Camera {
                 color = color + (1. -hit_record.material.absorption) * bounced_color;
             }
             //diffuse
-            else if(chance < hit_record.material.reflectivity + hit_record.material.refractioness + (hit_record.material.absorption)){
+            else if(chance < hit_record.material.reflectivity + hit_record.material.refractioness + hit_record.material.absorption){
                 let diffuse_direction_lambertian= hit_record.normal + Vec3d::random_unit_vector().near_zero_alt(hit_record.normal);
                 let ray_bounced = Ray::new(hit_record.pos, diffuse_direction_lambertian);
                 let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
                 color = color + (1.-hit_record.material.absorption) * attenuation.comp_vise(bounced_color);
+            }
+            else if(chance < hit_record.material.reflectivity + hit_record.material.refractioness + hit_record.material.absorption + hit_record.material.emission_intensity){
+                color = color + hit_record.material.emission_color * hit_record.material.emission_intensity;
             }
             else {
                 println!("Error: no ray was traced");
@@ -168,10 +171,8 @@ impl Camera {
             return color;
         }
 
-        //Background color lerp
-        let t = 0.5*(ray.direction_unit().y + 1.0);
-        let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
-        return pixel_color;
+        return Self::background_color(ray);
+
     }
 
     pub(crate) fn reflectance(cosine: f64, refraction_index: f64) -> f64 {
@@ -191,5 +192,12 @@ impl Camera {
         let ray_direction_no_unit = pixel_center - self.camera_origin;
         let ray = Ray::new(self.camera_origin, ray_direction_no_unit);
         return ray;
+    }
+    fn background_color(ray: &Ray) -> Vec3d {
+        return Vec3d::zero();
+        //Background color lerp
+        let t = 0.5*(ray.direction_unit().y + 1.0);
+        let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
+        return pixel_color;
     }
 }

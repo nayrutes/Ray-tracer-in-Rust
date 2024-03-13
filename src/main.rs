@@ -31,11 +31,12 @@ fn main() -> std::io::Result<()> {
     //let mut image : Image = Image::sample_image(image_height, image_width);
     let mut image : Image;// = Image::new_with_color(image_height, image_width, Vec3d::new(0.,1.,0.));
 
-    let material1 = Arc::new(Material::builder().albedo(Vec3d::new(1.,1.,1.)).absorption(0.3).build());
-    let material2  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.4,0.9)).absorption(0.3).build());
-    let material3  = Arc::new(Material::builder().reflectivity(1.).reflection_fuzz(0.01).build());
-    let material4  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.9,0.3)).absorption(0.3).reflectivity(0.5).build());
-    let material5  = Arc::new(Material::builder().refractioness(1.).refraction_index(1.5).absorption(0.).build());
+    let material1 = Arc::new(Material::builder().albedo(Vec3d::new(1.,1.,1.), 0.3).build());
+    let material2  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.4,0.9),0.3).build());
+    let material3  = Arc::new(Material::builder().reflection(1.,0.01).albedo(Vec3d::new(0.,0.,0.),1.0).build());
+    let material4  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.9,0.3),0.3).reflection(0.5, 0.).build());
+    let material5  = Arc::new(Material::builder().refraction(1.5, 1.).build());
+    let material6  = Arc::new(Material::builder().emission(Vec3d::new(1.,1.,1.),80.).build());
 
     let sphere = Sphere::new(Vec3d::new(0.,0., -1.), 0.5, material1.clone());
     let sphere2 = Sphere::new(Vec3d::new(6.,1.,-5.), 2.2, material3.clone());
@@ -48,6 +49,8 @@ fn main() -> std::io::Result<()> {
     world_objects.push(Box::new(sphere3));
     world_objects.push(Box::new(sphere4));
     world_objects.push(Box::new(sphere5));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(1.5,0.,-1.), -0.25, material5.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(1.5,0.,-2.), -0.25, material6.clone())));
 
     let camera = Camera::new(image_width, image_height, 1.);
     image = camera.render(&world_objects);

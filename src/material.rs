@@ -9,6 +9,8 @@ pub(crate) struct Material{
     pub reflection_fuzz: f64,
     pub(crate) refractioness: f64,
     pub refraction_index: f64,
+    pub(crate) emission_color: Vec3d,
+    pub(crate) emission_intensity: f64,
 }
 
 impl Material {
@@ -17,10 +19,12 @@ impl Material {
             albedo_color: Vec3d::new(0.5,0.,0.5),
             smoothness: 0.,
             reflectivity: 0.,
-            absorption: 1.,
+            absorption: 0.,
             reflection_fuzz: 0.,
             refractioness: 0.,
             refraction_index: 1.,
+            emission_color: Vec3d::new(1.,1.,1.),
+            emission_intensity: 0.0,
         }
     }
 }
@@ -34,6 +38,8 @@ pub(crate) struct MaterialBuilder{
     reflection_fuzz: f64,
     refractioness: f64,
     refraction_index: f64,
+    emission_color:Vec3d,
+    emission_intensity: f64,
 }
 
 impl MaterialBuilder {
@@ -47,11 +53,15 @@ impl MaterialBuilder {
             reflection_fuzz: 0.,
             refractioness: 0.,
             refraction_index: 1.,
+            emission_color: Vec3d::new(1.,1.,1.),
+            emission_intensity: 0.,
         }
     }
 
-    pub(crate) fn albedo(mut self, color: Vec3d) -> MaterialBuilder {
+    pub(crate) fn albedo(mut self, color: Vec3d, absorption: f64) -> MaterialBuilder {
         self.albedo_color = color;
+        let absorption_clamped = absorption.clamp(0.,1.);
+        self.absorption = absorption_clamped;
         self
     }
 
@@ -61,31 +71,23 @@ impl MaterialBuilder {
         self
     }
 
-    pub(crate) fn reflectivity(mut self, reflectivity: f64) -> MaterialBuilder {
+    pub(crate) fn reflection(mut self, reflectivity: f64, reflection_fuzz: f64) -> MaterialBuilder {
         let reflectivity_clamped = reflectivity.clamp(0.,1.);
         self.reflectivity = reflectivity_clamped;
-        self
-    }
-
-    pub(crate) fn absorption(mut self, absorption: f64) -> MaterialBuilder {
-        let absorption_clamped = absorption.clamp(0.,1.);
-        self.absorption = absorption_clamped;
-        self
-    }
-
-    pub(crate) fn reflection_fuzz(mut self, reflection_fuzz: f64) -> MaterialBuilder {
         let reflection_fuzz_clamped = reflection_fuzz.clamp(0.,1.);
         self.reflection_fuzz = reflection_fuzz_clamped;
         self
     }
 
-    pub(crate) fn refraction_index(mut self, refraction_index: f64) -> MaterialBuilder {
+    pub(crate) fn refraction(mut self, refraction_index: f64, refractioness: f64) -> MaterialBuilder {
         self.refraction_index = refraction_index;
+        self.refractioness = refractioness;
         self
     }
 
-    pub(crate) fn refractioness(mut self, refractioness: f64) -> MaterialBuilder {
-        self.refractioness = refractioness;
+    pub(crate) fn emission(mut self, emission_color: Vec3d, emission_intensity: f64) -> MaterialBuilder {
+        self.emission_color = emission_color;
+        self.emission_intensity = emission_intensity;
         self
     }
 
@@ -98,6 +100,8 @@ impl MaterialBuilder {
             reflection_fuzz: self.reflection_fuzz,
             refractioness: self.refractioness,
             refraction_index: self.refraction_index,
+            emission_color: self.emission_color,
+            emission_intensity: self.emission_intensity,
         }
     }
 }
