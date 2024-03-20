@@ -12,6 +12,7 @@ use std::io::{BufWriter, Write};
 use std::sync::Arc;
 use itertools::Itertools;
 use indicatif::ProgressIterator;
+use rand::{Rng, SeedableRng};
 use crate::hit::Hittable;
 use crate::ray::Ray;
 use crate::vec3d::Vec3d;
@@ -25,36 +26,59 @@ fn main() -> std::io::Result<()> {
     let image_width : usize = 400;
     let image_height: usize = 225;
 
-    let image_width : usize = 1600;
-    let image_height: usize = 900;
+    let image_width : usize = 1920;
+    let image_height: usize = 1080;
+    let samples_per_pixel: usize = 10000;
+    let max_bounces: usize = 7;
 
     //let mut image : Image = Image::sample_image(image_height, image_width);
     let mut image : Image;// = Image::new_with_color(image_height, image_width, Vec3d::new(0.,1.,0.));
 
-    let material1 = Arc::new(Material::builder().albedo(Vec3d::new(1.,1.,1.), 0.3).build());
-    let material2  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.4,0.9),0.3).build());
-    let material3  = Arc::new(Material::builder().reflection(1.,0.01).albedo(Vec3d::new(0.,0.,0.),1.0).build());
-    let material4  = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.9,0.3),0.3).reflection(0.5, 0.).build());
-    let material5  = Arc::new(Material::builder().refraction(1.5, 1.).build());
-    let material6  = Arc::new(Material::builder().emission(Vec3d::new(1.,1.,1.),80.).build());
+    let material1 = Arc::new(Material::builder().albedo(Vec3d::new(1.,1.,1.), 0.3).reflection(0.9,0.2).build());
+    let m_albedo_blue = Arc::new(Material::builder().albedo(Vec3d::new(0.1, 0.4, 0.9), 0.3).build());
+    let m_albedo_red = Arc::new(Material::builder().albedo(Vec3d::new(0.9, 0.1, 0.1), 0.3).build());
+    let material3 = Arc::new(Material::builder().reflection(1.,0.01).albedo(Vec3d::new(0.,0.,0.),1.0).build());
+    let material4 = Arc::new(Material::builder().albedo(Vec3d::new(0.1,0.9,0.3),0.3).reflection(1.0, 0.).build());
+    let material5 = Arc::new(Material::builder().refraction(1.5, 1.).build());
+    let emission_white = Arc::new(Material::builder().emission(Vec3d::new(1., 1., 1.), 80.).build());
+    let emission_green = Arc::new(Material::builder().emission(Vec3d::new(0.1, 1., 0.1), 20.).build());
 
-    let sphere = Sphere::new(Vec3d::new(0.,0., -1.), 0.5, material1.clone());
-    let sphere2 = Sphere::new(Vec3d::new(6.,1.,-5.), 2.2, material3.clone());
-    let sphere3 = Sphere::new(Vec3d::new(0., -100.5, -1.), 100., material2.clone());
-    let sphere4 = Sphere::new(Vec3d::new(1.,-0.5, -1.), 0.25, material4.clone());
-    let sphere5 = Sphere::new(Vec3d::new(1.,0.5, -1.), 0.25, material5.clone());
     let mut world_objects: Vec<Box<dyn Hittable + Sync>> = Vec::new();
-    world_objects.push(Box::new(sphere));
-    world_objects.push(Box::new(sphere2));
-    world_objects.push(Box::new(sphere3));
-    world_objects.push(Box::new(sphere4));
-    world_objects.push(Box::new(sphere5));
-    world_objects.push(Box::new(Sphere::new(Vec3d::new(1.5,0.,-1.), -0.25, material5.clone())));
-    world_objects.push(Box::new(Sphere::new(Vec3d::new(1.5,0.,-2.), -0.25, material6.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(0., -100.5, -1.), 100., m_albedo_blue.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(0., 210.5, -1.), 200., m_albedo_red.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(-3.5,0., -3.), 1., material1.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(-1.0,-0.3, -1.3), 0.3, material5.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(-1.,0., -5.0), 2.25, material4.clone())));
 
-    let camera = Camera::new(image_width, image_height, 1.);
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(5.,2., -8.0), 2.5, emission_white.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(-0.3,-0.4, -0.8), 0.1, emission_green.clone())));
+
+    //world_objects.push(Box::new(Sphere::new(Vec3d::new(6.,1.,-5.), 2.2, material3.clone())));
+    //world_objects.push(Box::new(Sphere::new(Vec3d::new(1.,-0.5, -1.), 0.25, material4.clone())));
+    //world_objects.push(Box::new(Sphere::new(Vec3d::new(1.,0.5, -1.), 0.25, material5.clone())));
+    world_objects.push(Box::new(Sphere::new(Vec3d::new(0.7,0.,-0.7), -0.2, material5.clone())));
+    //world_objects.push(Box::new(Sphere::new(Vec3d::new(1.5,0.,-2.), -0.25, material6.clone())));
+
+    //generate random spheres with seed
+    let seed = [0; 32];
+    let mut rng = rand::prelude::StdRng::from_seed(seed);
+    //let mut rng = rand::thread_rng();
+
+    for _ in 0..100{
+        let x = rng.gen_range(-5.0..5.0);
+        let y = rng.gen_range(0.0..0.1)- 0.5;
+        let z = rng.gen_range(-4.0..-0.5);
+        let r = rng.gen_range(0.05..0.25);
+        let material = Arc::new(Material::builder().albedo(Vec3d::new(rng.gen_range(0.0..1.0),rng.gen_range(0.0..1.0),rng.gen_range(0.0..1.0)),0.3).build());
+        world_objects.push(Box::new(Sphere::new(Vec3d::new(x,y,z), r, material)));
+    }
+
+    let camera = Camera::new(image_width, image_height, 1., samples_per_pixel, max_bounces, false);
     image = camera.render(&world_objects);
     image.write_to_file_bmp("output/sample.bmp")?;
+    //copy file and name it with render settings
+    std::fs::copy("output/sample.bmp", format!("output/sample_{}_{}_{}_{}.bmp", image_width, image_height, samples_per_pixel, max_bounces))?;
+
     //image.write_to_file_ppm("output/sample.ppm")?;
 
     Ok(())

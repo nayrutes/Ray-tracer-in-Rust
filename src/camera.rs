@@ -26,10 +26,11 @@ pub(crate) struct Camera {
 
     samples_per_pixel: usize,
     max_bounces: usize,
+    sky_lerp: bool,
 }
 
 impl Camera {
-    pub(crate) fn new(image_width: usize, image_height: usize, focal_length: f64) -> Self {
+    pub(crate) fn new(image_width: usize, image_height: usize, focal_length: f64, samples_per_pixel: usize, max_bounces: usize, sky: bool) -> Self {
 
         let camera_origin = Vec3d::zero();
         let camera_direction = Vec3d::forward();
@@ -61,8 +62,9 @@ impl Camera {
             pixel_delta_v,
             viewport_pos,
             pixel00_pos,
-            samples_per_pixel : 10000,
-            max_bounces: 7,
+            samples_per_pixel,
+            max_bounces,
+            sky_lerp: sky,
         }
     }
 
@@ -82,7 +84,7 @@ impl Camera {
             let multisample_color = (0..self.samples_per_pixel)
                 .into_iter().map(|_|{
                 let ray = &self.generate_rng_offset_ray(row, col);
-                return Self::ray_color(ray, self.max_bounces+1, &world) * scale;
+                return Self::ray_color(&self, ray, self.max_bounces+1, &world) * scale;
             }).sum::<Vec3d>();
                 return multisample_color;
 
@@ -93,7 +95,7 @@ impl Camera {
         return image;
     }
 
-    pub(crate) fn ray_color<T>(ray: &Ray, bounces_left: usize, hittable: &T) -> Vec3d where T:Hittable {
+    pub(crate) fn ray_color<T>(&self, ray: &Ray, bounces_left: usize, hittable: &T) -> Vec3d where T:Hittable {
         if bounces_left == 0{
             return Vec3d::zero();
         }
@@ -129,7 +131,7 @@ impl Camera {
                     fuzz_vector = hit_record.material.reflection_fuzz * Vec3d::random_in_unit_sphere();
                 }
                 let ray_bounced = Ray::new(hit_record.pos, reflect_direction + fuzz_vector);
-                let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+                let bounced_color = Self::ray_color(&self, &ray_bounced, bounces_left -1, hittable);
                 if(ray_bounced.direction_no_unit.dot(&hit_record.normal) > 0.){
                     color = color + hit_record.material.reflectivity * bounced_color;
                 }
@@ -150,14 +152,14 @@ impl Camera {
                     direction = unit_direction.refract(&hit_record.normal, refraction_ratio);
                 }
                 let ray_bounced = Ray::new(hit_record.pos, direction);
-                let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+                let bounced_color = Self::ray_color(&self, &ray_bounced, bounces_left -1, hittable);
                 color = color + (1. -hit_record.material.absorption) * bounced_color;
             }
             //diffuse
             else if(chance < hit_record.material.reflectivity + hit_record.material.refractioness + hit_record.material.absorption){
                 let diffuse_direction_lambertian= hit_record.normal + Vec3d::random_unit_vector().near_zero_alt(hit_record.normal);
                 let ray_bounced = Ray::new(hit_record.pos, diffuse_direction_lambertian);
-                let bounced_color = Self::ray_color(&ray_bounced, bounces_left -1, hittable);
+                let bounced_color = Self::ray_color(&self, &ray_bounced, bounces_left -1, hittable);
                 color = color + (1.-hit_record.material.absorption) * attenuation.comp_vise(bounced_color);
             }
             else if(chance < hit_record.material.reflectivity + hit_record.material.refractioness + hit_record.material.absorption + hit_record.material.emission_intensity){
@@ -171,7 +173,7 @@ impl Camera {
             return color;
         }
 
-        return Self::background_color(ray);
+        return Self::background_color(&self, ray);
 
     }
 
@@ -193,11 +195,13 @@ impl Camera {
         let ray = Ray::new(self.camera_origin, ray_direction_no_unit);
         return ray;
     }
-    fn background_color(ray: &Ray) -> Vec3d {
-        return Vec3d::zero();
-        //Background color lerp
-        let t = 0.5*(ray.direction_unit().y + 1.0);
-        let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
-        return pixel_color;
+    fn background_color(&self, ray: &Ray) -> Vec3d {
+        if self.sky_lerp{
+            let t = 0.5*(ray.direction_unit().y + 1.0);
+            let pixel_color = lerp_vec3d(Vec3d::new(1.,1.,1.),Vec3d::new(0.5,0.7,1.0),t);
+            return pixel_color;
+        }else {
+            return Vec3d::zero();
+        }
     }
 }
